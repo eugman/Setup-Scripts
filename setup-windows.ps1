@@ -238,6 +238,16 @@ if ($installDevTools) {
         Write-Host "Installing Arduino IDE..." -ForegroundColor Yellow
         winget install --id ArduinoSA.IDE.stable -e --silent --accept-package-agreements --accept-source-agreements
     }
+
+    # 1Password
+    Write-Host "`nChecking 1Password..." -ForegroundColor Yellow
+    $onePasswordCheck = winget list --id AgileBits.1Password -e 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "1Password already installed" -ForegroundColor Green
+    } else {
+        Write-Host "Installing 1Password..." -ForegroundColor Yellow
+        winget install --id AgileBits.1Password -e --silent --accept-package-agreements --accept-source-agreements
+    }
 } else {
     Write-Host "`nStep 5: Skipping development tools (RAM < 4GB)" -ForegroundColor Yellow
 }
