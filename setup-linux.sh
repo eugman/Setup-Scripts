@@ -84,7 +84,7 @@ print_status "System updated successfully"
 
 # Step 2: Install essential tools
 print_info "\nStep 2: Installing essential tools..."
-ESSENTIAL_TOOLS="tmux htop gtypist vim"
+ESSENTIAL_TOOLS="curl tmux htop gtypist vim"
 print_warning "Installing essential tools: $ESSENTIAL_TOOLS"
 sudo apt-get install -y $ESSENTIAL_TOOLS
 print_status "Essential tools installed"
