@@ -118,13 +118,21 @@ if [ -f "$SSH_CONFIG_PATH" ]; then
     print_warning "Backed up existing SSH config"
 fi
 
-# Generate SSH config
-cat > "$SSH_CONFIG_PATH" << EOF
+# Create or update SSH config
+if [ ! -f "$SSH_CONFIG_PATH" ]; then
+    # Create new file with header
+    cat > "$SSH_CONFIG_PATH" << EOF
 # Auto-generated SSH config
 EOF
+fi
 
+# Add each host if not already present
 for host in "${!SSH_HOSTS[@]}"; do
-    cat >> "$SSH_CONFIG_PATH" << EOF
+    if grep -q "^Host $host$" "$SSH_CONFIG_PATH" 2>/dev/null; then
+        print_status "SSH config entry for '$host' already exists, skipping"
+    else
+        print_warning "Adding SSH config entry for '$host'"
+        cat >> "$SSH_CONFIG_PATH" << EOF
 Host $host
     HostName ${SSH_HOSTS[$host]}
     User pi
@@ -132,10 +140,11 @@ Host $host
     IdentitiesOnly yes
 
 EOF
+    fi
 done
 
 chmod 600 "$SSH_CONFIG_PATH"
-print_status "SSH config file created at $SSH_CONFIG_PATH"
+print_status "SSH config file updated at $SSH_CONFIG_PATH"
 
 # Step 5: Detect system type and configure accordingly
 print_info "\nStep 5: Detecting system configuration..."
@@ -255,9 +264,22 @@ if (( $(echo "$TOTAL_RAM >= 4" | bc -l) )); then
             print_status "GitHub Desktop already installed"
         else
             print_warning "Installing GitHub Desktop..."
-            wget -qO /tmp/GitHubDesktop-linux.deb https://github.com/shiftkey/desktop/releases/latest/download/GitHubDesktop-linux-amd64-*.deb || true
-            sudo apt-get install -y /tmp/GitHubDesktop-linux.deb || print_warning "GitHub Desktop installation failed or not available for this architecture"
-            rm -f /tmp/GitHubDesktop-linux.deb
+            # Get the latest release URL dynamically
+            GITHUB_DESKTOP_URL=$(curl -s https://api.github.com/repos/shiftkey/desktop/releases/latest | grep "browser_download_url.*amd64.deb" | cut -d '"' -f 4)
+            
+            if [ -n "$GITHUB_DESKTOP_URL" ]; then
+                wget -qO /tmp/GitHubDesktop-linux.deb "$GITHUB_DESKTOP_URL" || print_warning "GitHub Desktop download failed"
+                
+                if [ -f /tmp/GitHubDesktop-linux.deb ]; then
+                    sudo apt-get install -y /tmp/GitHubDesktop-linux.deb || print_warning "GitHub Desktop installation failed"
+                    rm -f /tmp/GitHubDesktop-linux.deb
+                    print_status "GitHub Desktop installed"
+                else
+                    print_warning "GitHub Desktop download failed"
+                fi
+            else
+                print_warning "Could not determine GitHub Desktop download URL"
+            fi
         fi
     fi
     

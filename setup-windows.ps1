@@ -114,17 +114,46 @@ if (Test-Path $sshKeyPath) {
 Write-Host "`nStep 3: Creating SSH config file..." -ForegroundColor Cyan
 $sshConfigPath = "$sshDir\config"
 
-$configContent = ""
-foreach ($host in $sshHosts) {
-    $configContent += "Host $($host.Name)`n"
-    $configContent += "    HostName $($host.HostName)`n"
-    $configContent += "    User pi`n"
-    $configContent += "    IdentityFile ~/.ssh/id_ed25519`n"
-    $configContent += "    IdentitiesOnly yes`n`n"
+# Backup existing config if it exists
+if (Test-Path $sshConfigPath) {
+    $backupPath = "$sshConfigPath.backup.$(Get-Date -Format 'yyyyMMddHHmmss')"
+    Copy-Item $sshConfigPath $backupPath
+    Write-Host "Backed up existing SSH config to $backupPath" -ForegroundColor Yellow
 }
 
-$configContent | Out-File -FilePath $sshConfigPath -Encoding UTF8 -Force
-Write-Host "SSH config file created at $sshConfigPath" -ForegroundColor Green
+# Read existing config if present
+$existingConfig = @()
+if (Test-Path $sshConfigPath) {
+    $existingConfig = Get-Content $sshConfigPath -Raw
+}
+
+# Create config if it doesn't exist
+if (-not (Test-Path $sshConfigPath)) {
+    "# Auto-generated SSH config" | Out-File -FilePath $sshConfigPath -Encoding UTF8
+}
+
+# Add each host if not already present
+foreach ($sshHost in $sshHosts) {
+    $hostPattern = "Host $($sshHost.Name)"
+    
+    if ($existingConfig -match "(?m)^$hostPattern\s*$") {
+        Write-Host "SSH config entry for '$($sshHost.Name)' already exists, skipping" -ForegroundColor Green
+    } else {
+        Write-Host "Adding SSH config entry for '$($sshHost.Name)'" -ForegroundColor Yellow
+        $configEntry = @"
+
+Host $($sshHost.Name)
+    HostName $($sshHost.HostName)
+    User pi
+    IdentityFile ~/.ssh/id_ed25519
+    IdentitiesOnly yes
+
+"@
+        $configEntry | Out-File -FilePath $sshConfigPath -Encoding UTF8 -Append
+    }
+}
+
+Write-Host "SSH config file updated at $sshConfigPath" -ForegroundColor Green
 
 # Step 4: Check system RAM
 Write-Host "`nStep 4: Checking system resources..." -ForegroundColor Cyan
@@ -148,26 +177,34 @@ if ($installDevTools) {
     if (-not $vscodeInstalled) {
         Write-Host "Installing Visual Studio Code..." -ForegroundColor Yellow
         winget install --id Microsoft.VisualStudioCode -e --silent --accept-package-agreements --accept-source-agreements
+        
+        # Refresh PATH to include VS Code CLI
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        
+        # Wait a moment for installation to complete
+        Start-Sleep -Seconds 5
     } else {
         Write-Host "Visual Studio Code already installed" -ForegroundColor Green
     }
 
     # Install VS Code extensions
     Write-Host "`nInstalling VS Code extensions..." -ForegroundColor Cyan
-    $extensions = @(
-        "ms-vscode.cpptools",
-        "ms-vscode.cmake-tools",
-        "ms-vscode-remote.remote-ssh",
-        "ms-vscode-remote.remote-wsl"
-    )
     
-    foreach ($ext in $extensions) {
-        $installed = code --list-extensions 2>$null | Select-String -Pattern "^$ext$" -Quiet
-        if ($installed) {
-            Write-Host "Extension $ext already installed" -ForegroundColor Green
-        } else {
+    # Check if VS Code CLI is available
+    $codePath = "$env:LOCALAPPDATA\Programs\Microsoft VS Code\bin\code.cmd"
+    if (-not (Test-Path $codePath)) {
+        Write-Host "VS Code CLI not found. Extensions will need to be installed manually." -ForegroundColor Yellow
+    } else {
+        $extensions = @(
+            "ms-vscode.cpptools",
+            "ms-vscode.cmake-tools",
+            "ms-vscode-remote.remote-ssh",
+            "ms-vscode-remote.remote-wsl"
+        )
+        
+        foreach ($ext in $extensions) {
             Write-Host "Installing extension $ext..." -ForegroundColor Yellow
-            code --install-extension $ext --force 2>$null
+            & $codePath --install-extension $ext --force 2>$null
             if ($LASTEXITCODE -eq 0) {
                 Write-Host "Extension $ext installed successfully" -ForegroundColor Green
             } else {
@@ -195,18 +232,35 @@ if ($installDevTools) {
     } else {
         Write-Host "Installing GitHub CLI..." -ForegroundColor Yellow
         winget install --id GitHub.cli -e --silent --accept-package-agreements --accept-source-agreements
+        
+        # Refresh PATH and wait for installation
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        Start-Sleep -Seconds 5
+        
         Write-Host "Installing GitHub Copilot CLI extension..." -ForegroundColor Yellow
-        gh extension install github/gh-copilot
+        & "$env:LOCALAPPDATA\GitHub CLI\gh.exe" extension install github/gh-copilot
     }
 
-    # OpenAI Codex CLI (Note: This may not be available via winget, installing via npm if Node.js is available)
+    # Node.js and OpenAI Codex CLI
+    Write-Host "`nChecking Node.js..." -ForegroundColor Yellow
+    if (-not (Test-CommandExists node)) {
+        Write-Host "Installing Node.js..." -ForegroundColor Yellow
+        winget install --id OpenJS.NodeJS.LTS -e --silent --accept-package-agreements --accept-source-agreements
+        
+        # Refresh PATH and wait for installation
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        Start-Sleep -Seconds 5
+    } else {
+        Write-Host "Node.js already installed" -ForegroundColor Green
+    }
+
+    # Now install OpenAI Codex CLI
     Write-Host "`nChecking OpenAI Codex CLI..." -ForegroundColor Yellow
     if (Test-CommandExists npm) {
         Write-Host "Installing OpenAI Codex CLI via npm..." -ForegroundColor Yellow
-        npm install -g openai-cli
+        & "$env:ProgramFiles\nodejs\npm.cmd" install -g openai-cli
     } else {
-        Write-Host "Node.js not found. Skipping OpenAI Codex CLI installation." -ForegroundColor Yellow
-        Write-Host "Install Node.js first if you need OpenAI Codex CLI" -ForegroundColor Yellow
+        Write-Host "npm not found. Try restarting PowerShell and running script again." -ForegroundColor Yellow
     }
 
     # GitHub Desktop
@@ -254,7 +308,7 @@ if ($installDevTools) {
 
 # Step 6: Install Android Studio
 Write-Host "`nStep 6: Checking Android Studio..." -ForegroundColor Cyan
-$androidStudioInstalled = Test-Path "$env:LOCALAPPDATA\Google\AndroidStudio" -or (Test-Path "$env:ProgramFiles\Android\Android Studio")
+$androidStudioInstalled = (Test-Path "$env:LOCALAPPDATA\Google\AndroidStudio") -or (Test-Path "$env:ProgramFiles\Android\Android Studio")
 if (-not $androidStudioInstalled) {
     Write-Host "Installing Android Studio..." -ForegroundColor Yellow
     if (Test-Winget) {
