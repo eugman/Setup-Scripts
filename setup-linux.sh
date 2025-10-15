@@ -228,9 +228,18 @@ if (( $(echo "$TOTAL_RAM >= 4" | bc -l) )); then
         print_status "GitHub CLI already installed"
     else
         print_warning "Installing GitHub CLI..."
-        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+        
+        # Remove any existing repository configuration to avoid conflicts
+        sudo rm -f /etc/apt/sources.list.d/github-cli.list
+        
+        # Download and install the keyring
+        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg 2>/dev/null
         sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+        
+        # Add the repository with signed-by option
         echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+        
+        # Update and install
         sudo apt-get update -y
         sudo apt-get install -y gh
         print_status "GitHub CLI installed"
