@@ -1,0 +1,46 @@
+# SSH Config Template
+# This file shows the format used by the setup scripts
+# Location: ~/.ssh/config (Linux/macOS) or %USERPROFILE%\.ssh\config (Windows)
+
+Host pizero
+    HostName pizero.local
+    User pi
+    IdentityFile ~/.ssh/id_ed25519
+    IdentitiesOnly yes
+
+Host pi1
+    HostName pi1.local
+    User pi
+    IdentityFile ~/.ssh/id_ed25519
+    IdentitiesOnly yes
+
+Host pi2
+    HostName pi2.local
+    User pi
+    IdentityFile ~/.ssh/id_ed25519
+    IdentitiesOnly yes
+
+Host pi4
+    HostName pi4.local
+    User pi
+    IdentityFile ~/.ssh/id_ed25519
+    IdentitiesOnly yes
+
+Host pi5
+    HostName pi5.local
+    User pi
+    IdentityFile ~/.ssh/id_ed25519
+    IdentitiesOnly yes
+
+Host cubexx
+    HostName cubexx.local
+    User pi
+    IdentityFile ~/.ssh/id_ed25519
+    IdentitiesOnly yes
+
+# Additional common SSH options you might want to add:
+# ServerAliveInterval 60
+# ServerAliveCountMax 3
+# StrictHostKeyChecking ask
+# UserKnownHostsFile ~/.ssh/known_hosts
+# LogLevel INFO
