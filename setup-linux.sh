@@ -78,20 +78,16 @@ is_wsl() {
 # Step 1: System Update
 print_info "\nStep 1: Updating system packages..."
 sudo apt-get update -y
+sudo apt-get autoremove -y
 sudo apt-get upgrade -y
 print_status "System updated successfully"
 
 # Step 2: Install essential tools
 print_info "\nStep 2: Installing essential tools..."
 ESSENTIAL_TOOLS="tmux htop gtypist vim"
-for tool in $ESSENTIAL_TOOLS; do
-    if ! command -v $tool &> /dev/null; then
-        print_warning "Installing $tool..."
-        sudo apt-get install -y $tool
-    else
-        print_status "$tool already installed"
-    fi
-done
+print_warning "Installing essential tools: $ESSENTIAL_TOOLS"
+sudo apt-get install -y $ESSENTIAL_TOOLS
+print_status "Essential tools installed"
 
 # Step 3: Generate SSH Key
 print_info "\nStep 3: Setting up SSH key..."
@@ -308,15 +304,9 @@ if (( $(echo "$TOTAL_RAM >= 4" | bc -l) )); then
     # Step 7: Install embedded development tools for coding systems
     print_info "\nStep 7: Installing embedded development packages..."
     EMBED_PACKAGES="cmake gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib"
-    
-    for pkg in $EMBED_PACKAGES; do
-        if dpkg -l | grep -q "^ii  $pkg"; then
-            print_status "$pkg already installed"
-        else
-            print_warning "Installing $pkg..."
-            sudo apt-get install -y $pkg
-        fi
-    done
+    print_warning "Installing embedded packages: $EMBED_PACKAGES"
+    sudo apt-get install -y $EMBED_PACKAGES
+    print_status "Embedded development packages installed"
     
     # Step 8: Set up Pico SDK
     print_info "\nStep 8: Setting up Raspberry Pi Pico SDK..."
